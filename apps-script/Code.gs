@@ -1,6 +1,29 @@
 /* Bound to the shop spreadsheet. Secrets belong in Script Properties. */
+const STAFF_PAGE_URL = 'https://bajeejames7.github.io/duka-stock/';
 const PRODUCT_HEADERS = ['SKU','Brand','Product Name','Category','Variant','Model No','Barcode','Price (KES)','Current Stock','Last Updated','Updated By'];
 const LOG_HEADERS = ['Timestamp','SKU','Product Name','Action','Quantity','Stock Before','Stock After','Price (KES)','Staff','Notes','Photo'];
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('Duka Stock').addItem('Set up / repair', 'initialize').addItem('Set Gemini API key', 'setGeminiApiKey').addItem('Get staff link', 'getStaffLink').addToUi();
+}
+function setGeminiApiKey() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt('Set Gemini API key', 'Paste your Gemini API key.', ui.ButtonSet.OK_CANCEL);
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+  const key = response.getResponseText().trim();
+  if (!key) { ui.alert('Enter an API key.'); return; }
+  PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', key);
+  ui.alert('Gemini API key saved.');
+}
+function getStaffLink() {
+  const ui = SpreadsheetApp.getUi(), url = ScriptApp.getService().getUrl();
+  if (!url || /\/dev$/.test(url)) { ui.alert('Deploy as web app first'); return; }
+  initialize();
+  const pin = PropertiesService.getScriptProperties().getProperty('SHOP_PIN');
+  const link = STAFF_PAGE_URL + '#u=' + encodeURIComponent(url) + '&p=' + encodeURIComponent(pin);
+  const escaped = link.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const html = HtmlService.createHtmlOutput('<p>Share this link with trusted staff on WhatsApp.</p><p><a target="_blank" rel="noopener noreferrer" href="' + escaped + '">Open Duka Stock</a></p><textarea aria-label="Staff link" readonly style="width:100%;height:100px">' + escaped + '</textarea>').setWidth(450).setHeight(240);
+  ui.showModalDialog(html, 'Staff link');
+}
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
@@ -29,11 +52,13 @@ function book_() {
   if (!book) throw new Error('Run initialize in the bound spreadsheet editor once.');
   return book;
 }
-// Run once in the editor to bind the deployment and grant permissions.
+// Run from the spreadsheet menu to bind the deployment and grant permissions.
 function initialize() {
   const book = SpreadsheetApp.getActiveSpreadsheet();
   if (!book) throw new Error('Open Apps Script from the shop spreadsheet.');
-  PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', book.getId());
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('SPREADSHEET_ID', book.getId());
+  if (!props.getProperty('SHOP_PIN')) props.setProperty('SHOP_PIN', String(Math.floor(100000 + Math.random() * 900000)));
   setup_();
   // Authorize optional Drive access now, before deploying.
   if (PropertiesService.getScriptProperties().getProperty('SAVE_PHOTOS') === 'true') DriveApp.getRootFolder().getName();

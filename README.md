@@ -7,30 +7,24 @@ A static phone-friendly stock logger backed by your Google Sheet. Take a product
 1. Create a blank Google Sheet in the Google account that should own the shop records. Give it a name such as **Duka Stock**.
 2. In the Sheet, open **Extensions → Apps Script**. Replace the contents of `Code.gs` with [apps-script/Code.gs](apps-script/Code.gs).
 3. Open **Project Settings** (gear icon). Enable **Show appsscript.json manifest file in editor**. In the editor, replace `appsscript.json` with [apps-script/appsscript.json](apps-script/appsscript.json). Save.
-4. In **Project Settings → Script Properties → Add script property**, enter:
-
-   | Property | Value |
-   | --- | --- |
-   | `SHOP_PIN` | A private PIN you will share with trusted staff |
-   | `GEMINI_API_KEY` | Your Gemini API key from Google AI Studio |
-   | `GEMINI_MODEL` | Optional; defaults to `gemini-2.5-flash` |
-   | `SAVE_PHOTOS` | `false` (default), or `true` to keep photos in Drive |
-
-5. Obtain a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey) using your Google account. Keep it only in Script Properties. API free-tier availability and quotas depend on your account; check the provider's displayed terms before enabling billing. Hosting this app needs no paid server.
-6. In the editor's function selector choose **initialize**, then **Run**. Review and grant the requested permissions for your own script. This stores `SPREADSHEET_ID` automatically and creates the Products and Log tabs. Do not manually alter their headers. If Google displays an unverified-app warning, proceed only after verifying this is the script you just created in your own account. Workspace administrators may restrict deployments.
-7. Click **Deploy → New deployment → Select type → Web app**. Set **Execute as: Me**, **Who has access: Anyone**, and click **Deploy**. Copy the Web app URL ending in `/exec`, not the editor URL or a `/dev` test URL.
-8. If you change the code later, use **Deploy → Manage deployments → Edit → New version → Deploy** to update the existing URL. If enabling photos later, set `SAVE_PHOTOS=true`, run `initialize` again to authorize Drive, then update the deployment.
+4. Return to the spreadsheet and reload it. Open **Duka Stock > Set up / repair** and grant the requested permissions for your own script. This generates a six-digit Shop PIN automatically, stores the spreadsheet ID, and creates the Products and Log tabs. Existing PINs are preserved. Do not manually alter the tab headers. If Google displays an unverified-app warning, verify this is the script you just created in your own account before continuing.
+5. Obtain a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey). In the spreadsheet, choose **Duka Stock > Set Gemini API key**, paste the key and confirm. The key stays in Script Properties and is never displayed back. Manual stock entry also works without image recognition.
+6. In the Apps Script editor, click **Deploy > New deployment > Select type > Web app**. Set **Execute as: Me**, **Who has access: Anyone**, then click **Deploy**. Workspace administrators may restrict deployments.
+7. Back in the spreadsheet, choose **Duka Stock > Get staff link**. Share the clickable link with trusted staff on WhatsApp (copy the text in the dialog). If you see **Deploy as web app first**, complete step 6 first. The link includes the connection and PIN, so treat it as private.
+8. Staff open that link on their phone, enter only **Your name**, and tap **Continue** to start logging stock. Connection checks and sheet setup run in the background. Staff never need **Extensions > Apps Script**, a deployment URL, a PIN, or a Google API key.
+9. To repair sheet setup, use **Duka Stock > Set up / repair** again. After changing backend code, use **Deploy > Manage deployments > Edit > New version > Deploy** to update the existing deployment. Optional Script Properties: `GEMINI_MODEL` defaults to `gemini-2.5-flash`; `SAVE_PHOTOS` defaults to `false`. To enable photo storage, set `SAVE_PHOTOS=true`, run **Set up / repair** to authorize Drive, then update the deployment.
 
 The PIN protects every API action. The Gemini key stays on Google's backend. The PIN and connection are stored in the phone's localStorage, so use trusted devices. Photos go to Gemini for recognition; when photo storage is enabled, copies also go into the owner's private **Duka Stock Photos** Drive folder. Stored links require Drive permission; files are not made public.
 
-## 2. Host the webpage free with GitHub Pages
+## 2. Staff phones and optional webpage hosting
 
-1. Create a GitHub repository. Upload the contents of **web/** (`index.html`, `app.js`, `styles.css`, `manifest.json`, `sw.js` and the `icons` directory) to the repository root. Keep the folder structure for `icons/icon.svg`. Do not upload any secret keys.
-2. Open the repository's **Settings → Pages**. Under **Build and deployment**, choose **Deploy from a branch**, select **main** and **/(root)**, then **Save**.
-3. Wait for the Pages deployment and open the HTTPS website URL shown there on your phone. A project repository URL may include the repository name; the app uses relative paths so it works there too.
-4. Alternatively, upload the `web/` folder as a static site to Netlify. No build command is needed.
-5. On the first screen enter your Apps Script `/exec` URL, Shop PIN, and staff name. Tap **Test connection & save**. This tests `ping`, then runs `setup` to ensure the sheet headers exist. Each staff phone has its own name and settings.
-6. On Android Chrome use the browser menu's **Install app** or **Add to Home screen** when available. On iPhone Safari use **Share → Add to Home Screen**. Installation is optional. Visit once online to cache the interface for offline use.
+The staff link uses **https://bajeejames7.github.io/duka-stock/**. Open the owner's WhatsApp link to save the connection automatically; the URL fragment is then removed from the address bar. Each phone keeps its own staff name. Without a link, the app says: "Open the link you were sent on WhatsApp to connect this phone."
+
+Settings normally shows only **Your name**. Expand **Advanced connection** to repair the deployment URL or PIN manually. Saving opens stock entry and checks `ping` and `setup` in the background; connection errors appear on screen.
+
+On Android Chrome use **Install app** or **Add to Home screen** when available. On iPhone Safari use **Share > Add to Home Screen**. Installation is optional. Visit once online to cache the interface for offline use.
+
+For your own hosting, upload the contents of **web/** to a GitHub repository root, keeping the `icons` directory. In **Settings > Pages**, choose **Deploy from a branch**, **main**, **/(root)**, then **Save**. Alternatively host `web/` on Netlify with no build command. Change `STAFF_PAGE_URL` in `Code.gs` to your HTTPS website URL before generating staff links. Never upload secret keys.
 
 For local development serve `web/` with any static HTTP server (for example `npx http-server web`). Camera and service worker features require HTTPS or localhost. Opening the HTML as a `file:` URL is not supported.
 
@@ -50,6 +44,6 @@ An invalid response usually means the deployment is not accessible to Anyone, th
 
 Before using live inventory, test on a spare Sheet: set a count to 10, receive 3, remove 2, and verify stock 11 with three log rows; edit an existing product; test barcode matching and a new photo; check search and recent log; go offline, save a manual entry, reconnect and verify one log row. Retry the same request ID to verify it is not counted twice. Test on two phones to check simultaneous entries. Timestamps use Africa/Nairobi.
 
-Run `node --check web/app.js` and `node --check web/sw.js` to check JavaScript syntax. To syntax-check Apps Script locally, copy `apps-script/Code.gs` to a temporary `.js` file and run `node --check` on it; Google service calls require a deployed Apps Script environment to test.
+Run `node --check web/app.js` and `node --check web/sw.js` to check JavaScript syntax. To syntax-check Apps Script locally, run `node -e "new Function(require('fs').readFileSync('apps-script/Code.gs', 'utf8'))"`; Google service calls require a deployed Apps Script environment to test.
 
 Files: `web/` contains the static PWA, service worker, manifest and SVG icon; `apps-script/` contains the backend and timezone/permissions manifest. No build step or framework is required.

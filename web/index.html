@@ -10,11 +10,19 @@
   <nav aria-label="Main navigation"><button data-screen="entry">Stock entry</button><button data-screen="products">Products</button><button data-screen="recent">Recent log</button><button data-screen="settings">Settings</button></nav>
   <main>
     <p id="status" role="status" aria-live="polite"></p>
-    <section id="settings" hidden><h2>Shop connection</h2><form id="settings-form">
-      <label>Apps Script Web App URL<input id="url" type="url" required placeholder="https://script.google.com/macros/s/…/exec"></label>
-      <label>Shop PIN<input id="pin" type="password" required autocomplete="off"></label>
-      <label>Staff name<input id="staff" required maxlength="100" autocomplete="name"></label>
-      <button type="submit">Test connection &amp; save</button><button id="reset" type="button" class="secondary">Reset settings</button>
+    <section id="welcome" hidden><h2>Your name</h2><form id="name-form">
+      <label>Your name<input id="welcome-staff" required maxlength="100" autocomplete="name"></label>
+      <button type="submit">Continue</button>
+    </form></section>
+    <section id="settings" hidden><h2>Settings</h2>
+      <p id="connection-help" hidden>Open the link you were sent on WhatsApp to connect this phone.</p>
+      <form id="settings-form">
+      <label>Your name<input id="staff" required maxlength="100" autocomplete="name"></label>
+      <details id="advanced-connection"><summary>Advanced connection</summary>
+        <label>Apps Script Web App URL<input id="url" type="url" placeholder="https://script.google.com/macros/s/DEPLOYMENT_ID/exec"></label>
+        <label>Shop PIN<input id="pin" type="password" autocomplete="off"></label>
+      </details>
+      <button type="submit">Save</button><button id="reset" type="button" class="secondary">Reset settings</button>
       <p>Your connection and pending entries are stored on this device. Use a trusted phone.</p>
     </form></section>
     <section id="entry" hidden><h2>Log stock</h2>
