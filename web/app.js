@@ -108,7 +108,7 @@ form.addEventListener('submit', async event => {
   busy = true; event.submitter.disabled = true;
   try {
     // Persist before sending: a lost response can safely replay the same request ID.
-    persistQueue([...queue, { payload, url: config.url }]);
+    persistQueue([...queue, { payload: { ...payload, image: null }, url: config.url }]);
     clearEntry(); await retryQueue();
   } catch (error) { message('Could not store this entry on the device. Free some storage and try again. ' + error.message, true); }
   finally { busy = false; event.submitter.disabled = false; }
