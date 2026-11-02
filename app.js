@@ -5,6 +5,17 @@ let config = read('duka-config', null), catalog = [], selected = '', photo = nul
 let queue = read('duka-queue', []);
 const fields = ['brand', 'product_name', 'category', 'variant', 'model_number', 'barcode'];
 const form = $('entry-form');
+const connectionReady = value => value && /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(value.url) && value.pin;
+const invitation = new URLSearchParams(location.hash.slice(1));
+if (invitation.has('u') && invitation.has('p')) {
+  const next = { url: invitation.get('u'), pin: invitation.get('p'), staff: config?.staff || '' };
+  if (connectionReady(next) && !(queue.length && config && next.url !== config.url)) {
+    localStorage.setItem('duka-config', JSON.stringify(next)); config = next;
+  } else {
+    message(queue.length ? 'Send pending entries before changing the shop connection.' : 'This staff link is invalid. Ask the owner for a new link.', true);
+  }
+  history.replaceState(null, '', location.pathname + location.search);
+}
 function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
 function badge() { $('pending').textContent = queue.length ? `${queue.length} pending` : ''; }
 function persistQueue(next) { localStorage.setItem('duka-queue', JSON.stringify(next)); queue = next; badge(); }
@@ -21,26 +32,42 @@ async function api(action, payload = {}, connection = config) {
   return result;
 }
 function show(screen) {
-  if (!config) screen = 'settings';
-  ['entry','products','recent','settings'].forEach(id => { $(id).hidden = id !== screen; });
+  if (!connectionReady(config)) screen = 'settings';
+  else if (!config.staff) screen = 'welcome';
+  $('connection-help').hidden = !!connectionReady(config);
+  document.querySelector('nav').hidden = screen === 'welcome';
+  ['entry','products','recent','settings','welcome'].forEach(id => { $(id).hidden = id !== screen; });
   document.querySelectorAll('[data-screen]').forEach(button => { if (button.dataset.screen === screen) button.setAttribute('aria-current','page'); else button.removeAttribute('aria-current'); });
   if (screen === 'products') loadProducts();
   if (screen === 'recent') loadRecent();
 }
 document.querySelectorAll('[data-screen]').forEach(button => button.addEventListener('click', () => show(button.dataset.screen)));
-if (config) ['url','pin','staff'].forEach(key => { $(key).value = config[key]; });
+if (config) ['url','pin','staff'].forEach(key => { $(key).value = config[key] || ''; });
+async function connect(next) {
+  try { await api('ping', {}, next); await api('setup', {}, next); if (config === next) { message('Connection ready.'); retryQueue(); } }
+  catch (error) { if (config === next) message(error.message, true); }
+}
+function saveConfig(next) {
+  localStorage.setItem('duka-config', JSON.stringify(next)); config = next;
+  ['url','pin','staff'].forEach(key => { $(key).value = next[key]; });
+  message('Connecting…'); show('entry'); connect(next);
+}
+$('name-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const staff = $('welcome-staff').value.trim();
+  if (!staff) return message('Enter your name.', true);
+  saveConfig({ ...config, staff });
+});
 $('settings-form').addEventListener('submit', async event => {
   event.preventDefault();
   const next = { url: $('url').value.trim(), pin: $('pin').value, staff: $('staff').value.trim() };
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(next.url) || !next.staff) return message('Enter a deployed Apps Script /exec URL and staff name.', true);
+  if (!connectionReady(next) || !next.staff) { $('advanced-connection').open = true; return message('Enter a deployed Apps Script /exec URL, Shop PIN and your name.', true); }
   if (queue.length && config && next.url !== config.url) return message('Send pending entries before changing the shop connection.', true);
-  const button = event.submitter; button.disabled = true; message('Testing connection…');
-  try { await api('ping', {}, next); await api('setup', {}, next); localStorage.setItem('duka-config', JSON.stringify(next)); config = next; message('Connection ready.'); show('entry'); retryQueue(); }
-  catch (error) { message(error.message, true); } finally { button.disabled = false; }
+  saveConfig(next);
 });
 $('reset').addEventListener('click', () => {
   if (queue.length) return message('Send pending entries before resetting settings.', true);
-  localStorage.removeItem('duka-config'); config = null; $('settings-form').reset(); show('settings'); message('Settings reset.');
+  localStorage.removeItem('duka-config'); config = null; $('settings-form').reset(); $('name-form').reset(); $('advanced-connection').open = false; show('settings'); message('Settings reset.');
 });
 function fill(product = {}) {
   selected = product.sku || '';
@@ -127,5 +154,5 @@ async function retryQueue() {
   } catch (error) { message(error.message, true); } finally { retrying = false; }
 }
 window.addEventListener('online', retryQueue); setInterval(() => { if (navigator.onLine) retryQueue(); }, 30000);
-badge(); show(config ? 'entry' : 'settings'); if (config) retryQueue();
+badge(); show('entry'); if (connectionReady(config) && config.staff) retryQueue();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
